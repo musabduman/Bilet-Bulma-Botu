@@ -267,6 +267,8 @@ async def select_cabin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     query = update.callback_query
     await query.answer()
 
+    print(f"[CABIN] Butona basıldı: {query.data}")
+    
     secim = query.data.split(":", 1)[1]
     secimler = context.user_data.get("cabin_secimler", [])
 

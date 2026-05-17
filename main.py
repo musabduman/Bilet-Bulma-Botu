@@ -16,6 +16,7 @@ from telegram.ext import (
 from config import (
     ARRIVAL,
     ARRIVAL_SELECT,
+    CABIN_CLASS,        # ← eklendi
     DATE,
     DEPARTURE,
     DEPARTURE_SELECT,
@@ -28,6 +29,7 @@ from handlers import (
     search_arrival,
     search_departure,
     select_arrival,
+    select_cabin,       # ← eklendi
     select_date,
     select_departure,
     select_gender,
@@ -105,20 +107,20 @@ def main():
     if not station_list:
         logger.error("Hiç istasyon yüklenemedi. Bot çalışır ama istasyon araması sonuç vermeyebilir.")
 
-    # ÖNEMLİ: Liste olarak tutuyoruz. Aynı isimli istasyonlar artık birbirini ezmez.
     application.bot_data["station_list"] = station_list
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            GENDER: [CallbackQueryHandler(select_gender)],
-            TRANSPORT: [CallbackQueryHandler(select_transport)],
-            DATE: [CallbackQueryHandler(select_date)],
-            DEPARTURE: [MessageHandler(filters.TEXT & ~filters.COMMAND, search_departure)],
+            GENDER:           [CallbackQueryHandler(select_gender)],
+            TRANSPORT:        [CallbackQueryHandler(select_transport)],
+            DATE:             [CallbackQueryHandler(select_date)],
+            DEPARTURE:        [MessageHandler(filters.TEXT & ~filters.COMMAND, search_departure)],
             DEPARTURE_SELECT: [CallbackQueryHandler(select_departure, pattern=r"^dep:\d+$")],
-            ARRIVAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, search_arrival)],
-            ARRIVAL_SELECT: [CallbackQueryHandler(select_arrival, pattern=r"^arr:\d+$")],
-            TIME: [CallbackQueryHandler(select_time)],
+            ARRIVAL:          [MessageHandler(filters.TEXT & ~filters.COMMAND, search_arrival)],
+            ARRIVAL_SELECT:   [CallbackQueryHandler(select_arrival, pattern=r"^arr:\d+$")],
+            CABIN_CLASS:      [CallbackQueryHandler(select_cabin, pattern=r"^cabin:")],  # ← eklendi
+            TIME:             [CallbackQueryHandler(select_time)],
         },
         fallbacks=[CommandHandler("start", start)],
     )
