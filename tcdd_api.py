@@ -125,11 +125,11 @@ def _sum_train_availability(train, kullanici_cinsiyet):
 
     # İzin verilen vagon sınıfları (Küçük harflerle)
     # Not: TCDD anahat trenlerindeki standart ekonomi koltuklara "Pulman" der.
-    izin_verilen_siniflar = ["ekonomi", "business", "pulman"]
+    izin_verilen_siniflar = ["ekonomi", "business"]
 
     def is_allowed_class(sinif_adi):
         if not sinif_adi:
-            return True # Sınıf adı verisi gelmezse güvenli tarafta kalıp koltuğu say
+            return False # Sınıf adı verisi gelmezse güvenli tarafta kalıp koltuğu say
         return any(hedef in str(sinif_adi).lower() for hedef in izin_verilen_siniflar)
 
     # 1. YHT / vagon detaylı yapı
