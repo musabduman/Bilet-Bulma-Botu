@@ -120,13 +120,29 @@ def _safe_int(value, default=0):
 
 
 def _sum_train_availability(train, kullanici_cinsiyet):
-    """YHT ve diğer tren veri yapılarına göre boş koltuk sayısını hesaplar."""
+    """YHT ve diğer tren veri yapılarına göre boş koltuk sayısını hesaplar. (Sadece Ekonomi, Business ve Pulman)"""
     toplam_bos = 0
 
-    # YHT / vagon detaylı yapı
+    # İzin verilen vagon sınıfları (Küçük harflerle)
+    # Not: TCDD anahat trenlerindeki standart ekonomi koltuklara "Pulman" der.
+    izin_verilen_siniflar = ["ekonomi", "business", "pulman"]
+
+    def is_allowed_class(sinif_adi):
+        if not sinif_adi:
+            return True # Sınıf adı verisi gelmezse güvenli tarafta kalıp koltuğu say
+        return any(hedef in str(sinif_adi).lower() for hedef in izin_verilen_siniflar)
+
+    # 1. YHT / vagon detaylı yapı
     train_cars = train.get("trainCars", []) or []
     if train_cars:
         for car in train_cars:
+            # TCDD API'si vagon adını genellikle wagonClassName veya cabinClassName içinde gönderir
+            vagon_sinifi = car.get("wagonClassName") or car.get("cabinClassName") or ""
+            
+            # Eğer vagon sınıfı bizim listede yoksa (örn: Yataklı, Örtülü Kuşetli, Yemekli), bu vagonu tamamen es geç
+            if vagon_sinifi and not is_allowed_class(vagon_sinifi):
+                continue
+
             for avail in car.get("availabilities", []) or []:
                 adet = _safe_int(avail.get("availability"), 0)
                 if adet <= 0:
@@ -140,8 +156,14 @@ def _sum_train_availability(train, kullanici_cinsiyet):
                     toplam_bos += adet
         return toplam_bos
 
-    # Anahat / ekspres tarzı yapı
+    # 2. Anahat / ekspres tarzı yapı (Kabin bazlı)
     for cabin in train.get("cabinClassAvailabilities", []) or []:
+        kabin_sinifi = cabin.get("cabinClassName") or cabin.get("name") or ""
+        
+        # Kabin sınıfı (örn: 2 Yataklı) bizim listede yoksa es geç
+        if kabin_sinifi and not is_allowed_class(kabin_sinifi):
+            continue
+            
         toplam_bos += _safe_int(cabin.get("availabilityCount"), 0)
         toplam_bos += _safe_int(cabin.get("availableSeatCount"), 0)
 
