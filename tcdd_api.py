@@ -120,31 +120,34 @@ def _safe_int(value, default=0):
 
 
 def _sum_train_availability(train, kullanici_cinsiyet, izin_verilen_siniflar=None):
-    """YHT ve diğer tren veri yapılarına göre boş koltuk sayısını hesaplar."""
     toplam_bos = 0
 
     if izin_verilen_siniflar is None:
         izin_verilen_siniflar = ["ekonomi", "business", "pulman"]
 
-    def is_allowed_class(sinif_adi):
-        if not sinif_adi:
-            return False
-        return any(h in str(sinif_adi).lower() for h in izin_verilen_siniflar)
+    # Business=4, Ekonomi=1, Tekerlekli=22/23
+    # Kullanıcı "business" seçtiyse sadece 4, "ekonomi" seçtiyse sadece 1
+    SINIF_ID_MAP = {
+        "ekonomi": {1},
+        "business": {4},
+        "pulman": {3},  # test et, doğru olmayabilir
+    }
 
+    izin_verilen_ids = set()
+    for sinif in izin_verilen_siniflar:
+        izin_verilen_ids.update(SINIF_ID_MAP.get(sinif, set()))
+
+    # YHT yapısı — trainCars varsa
     train_cars = train.get("trainCars", []) or []
     if train_cars:
         for car in train_cars:
-            vagon_sinifi = car.get("wagonClassName") or car.get("cabinClassName") or ""
-            print(f"[X-RAY VAGON SINIFI] '{vagon_sinifi}'")
-
-            if not is_allowed_class(vagon_sinifi):
+            booking_class_id = car.get("bookingClassId")
+            if booking_class_id and int(booking_class_id) not in izin_verilen_ids:
                 continue
-
             for avail in car.get("availabilities", []) or []:
                 adet = _safe_int(avail.get("availability"), 0)
                 if adet <= 0:
                     continue
-
                 g_code_str = str(avail.get("gender", "0"))
                 if kullanici_cinsiyet == "Erkek" and g_code_str in {"1", "3", "0", "None", ""}:
                     toplam_bos += adet
@@ -152,10 +155,21 @@ def _sum_train_availability(train, kullanici_cinsiyet, izin_verilen_siniflar=Non
                     toplam_bos += adet
         return toplam_bos
 
+    # bookingClassCapacities yapısı — YHT'lerde gelen asıl yapı bu olabilir
+    for bc in train.get("bookingClassCapacities", []) or []:
+        class_id = _safe_int(bc.get("bookingClassId"))
+        if izin_verilen_ids and class_id not in izin_verilen_ids:
+            continue
+        # capacity burada toplam kapasite, boş değil — bu yanlış kaynak
+        # gerçek boş koltuk sayısı için trainCars veya başka field lazım
+
+    # Anahat yapısı
     for cabin in train.get("cabinClassAvailabilities", []) or []:
         kabin_sinifi = cabin.get("cabinClassName") or cabin.get("name") or ""
-        if not is_allowed_class(kabin_sinifi):
-            continue
+        if kabin_sinifi:
+            sinif_lower = kabin_sinifi.lower()
+            if not any(h in sinif_lower for h in izin_verilen_siniflar):
+                continue
         toplam_bos += _safe_int(cabin.get("availabilityCount"), 0)
         toplam_bos += _safe_int(cabin.get("availableSeatCount"), 0)
 
@@ -206,7 +220,7 @@ def check_train_tickets(kalkis_id, kalkis_name, varis_id, varis_name, tcdd_tarih
 
         print(f"\n[X-RAY] TCDD API İstek Atıldı. Durum Kodu: {r.status_code}")
         print("[X-RAY BODY]", body)
-        print("[X-RAY RESPONSE]", r.text[:1000])
+        print("[X-RAY RESPONSE]", r.text[:5000])
 
         if r.status_code == 200:
             bulunan_trenler = []
