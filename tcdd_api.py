@@ -123,14 +123,13 @@ def _sum_train_availability(train, kullanici_cinsiyet):
     """YHT ve diğer tren veri yapılarına göre boş koltuk sayısını hesaplar. (Sadece Ekonomi, Business ve Pulman)"""
     toplam_bos = 0
 
-    # İzin verilen vagon sınıfları (Küçük harflerle)
-    # Not: TCDD anahat trenlerindeki standart ekonomi koltuklara "Pulman" der.
-    izin_verilen_siniflar = ["ekonomi", "business"]
+    if izin_verilen_siniflar is None:
+        izin_verilen_siniflar = ["ekonomi", "business","pulman"]
 
     def is_allowed_class(sinif_adi):
         if not sinif_adi:
             return False # Sınıf adı verisi gelmezse güvenli tarafta kalıp koltuğu say
-        return any(hedef in str(sinif_adi).lower() for hedef in izin_verilen_siniflar)
+        return any(h in str(sinif_adi).lower() for h in izin_verilen_siniflar)
 
     # 1. YHT / vagon detaylı yapı
     train_cars = train.get("trainCars", []) or []
@@ -139,6 +138,8 @@ def _sum_train_availability(train, kullanici_cinsiyet):
             # TCDD API'si vagon adını genellikle wagonClassName veya cabinClassName içinde gönderir
             vagon_sinifi = car.get("wagonClassName") or car.get("cabinClassName") or ""
             
+            print(f"[X-RAY VAGON SINIFI] '{vagon_sinifi}'") 
+
             # Eğer vagon sınıfı bizim listede yoksa (örn: Yataklı, Örtülü Kuşetli, Yemekli), bu vagonu tamamen es geç
             if vagon_sinifi and not is_allowed_class(vagon_sinifi):
                 continue
