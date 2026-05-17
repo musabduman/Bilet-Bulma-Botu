@@ -119,29 +119,25 @@ def _safe_int(value, default=0):
         return default
 
 
-def _sum_train_availability(train, kullanici_cinsiyet):
-    """YHT ve diğer tren veri yapılarına göre boş koltuk sayısını hesaplar. (Sadece Ekonomi, Business ve Pulman)"""
+def _sum_train_availability(train, kullanici_cinsiyet, izin_verilen_siniflar=None):
+    """YHT ve diğer tren veri yapılarına göre boş koltuk sayısını hesaplar."""
     toplam_bos = 0
 
     if izin_verilen_siniflar is None:
-        izin_verilen_siniflar = ["ekonomi", "business","pulman"]
+        izin_verilen_siniflar = ["ekonomi", "business", "pulman"]
 
     def is_allowed_class(sinif_adi):
         if not sinif_adi:
-            return False # Sınıf adı verisi gelmezse güvenli tarafta kalıp koltuğu say
+            return False
         return any(h in str(sinif_adi).lower() for h in izin_verilen_siniflar)
 
-    # 1. YHT / vagon detaylı yapı
     train_cars = train.get("trainCars", []) or []
     if train_cars:
         for car in train_cars:
-            # TCDD API'si vagon adını genellikle wagonClassName veya cabinClassName içinde gönderir
             vagon_sinifi = car.get("wagonClassName") or car.get("cabinClassName") or ""
-            
-            print(f"[X-RAY VAGON SINIFI] '{vagon_sinifi}'") 
+            print(f"[X-RAY VAGON SINIFI] '{vagon_sinifi}'")
 
-            # Eğer vagon sınıfı bizim listede yoksa (örn: Yataklı, Örtülü Kuşetli, Yemekli), bu vagonu tamamen es geç
-            if vagon_sinifi and not is_allowed_class(vagon_sinifi):
+            if not is_allowed_class(vagon_sinifi):
                 continue
 
             for avail in car.get("availabilities", []) or []:
@@ -150,27 +146,22 @@ def _sum_train_availability(train, kullanici_cinsiyet):
                     continue
 
                 g_code_str = str(avail.get("gender", "0"))
-
                 if kullanici_cinsiyet == "Erkek" and g_code_str in {"1", "3", "0", "None", ""}:
                     toplam_bos += adet
                 elif kullanici_cinsiyet == "Kadin" and g_code_str in {"2", "3", "0", "None", ""}:
                     toplam_bos += adet
         return toplam_bos
 
-    # 2. Anahat / ekspres tarzı yapı (Kabin bazlı)
     for cabin in train.get("cabinClassAvailabilities", []) or []:
         kabin_sinifi = cabin.get("cabinClassName") or cabin.get("name") or ""
-        
-        # Kabin sınıfı (örn: 2 Yataklı) bizim listede yoksa es geç
-        if kabin_sinifi and not is_allowed_class(kabin_sinifi):
+        if not is_allowed_class(kabin_sinifi):
             continue
-            
         toplam_bos += _safe_int(cabin.get("availabilityCount"), 0)
         toplam_bos += _safe_int(cabin.get("availableSeatCount"), 0)
 
     return toplam_bos
-
-def check_train_tickets(kalkis_id, kalkis_name, varis_id, varis_name, tcdd_tarih, hedef_saat, kullanici_cinsiyet):
+    
+def check_train_tickets(kalkis_id, kalkis_name, varis_id, varis_name, tcdd_tarih, hedef_saat, kullanici_cinsiyet, izin_verilen_siniflar=None):
     """TCDD API'sine istek atar ve uygun koltukları döner."""
     try:
         api_tarih, selected_date = _format_date_for_tcdd(tcdd_tarih)
@@ -243,7 +234,7 @@ def check_train_tickets(kalkis_id, kalkis_name, varis_id, varis_name, tcdd_tarih
                     continue
 
                 train_name = train.get("name") or train.get("trainName") or "Tren"
-                toplam_bos = _sum_train_availability(train, kullanici_cinsiyet)
+                toplam_bos = _sum_train_availability(train, kullanici_cinsiyet, izin_verilen_siniflar)
 
                 print(f"👉 [X-RAY TREN] {saat_str} - {train_name} | Bulunan Uygun Koltuk: {toplam_bos}")
 
